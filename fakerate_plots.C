@@ -104,8 +104,8 @@ void fakerate_plots() {
     u_pt->Scale(1 / h_total_pt->Integral());
     u_pt->SetLineColor(kRed);
     u_pt->SetMarkerColor(kRed);
-    u_theta->SetMarkerSize(2);
-    u_theta->SetLineWidth(2);
+    u_pt->SetMarkerSize(2);
+    u_pt->SetLineWidth(2);
     u_pt->GetYaxis()->SetRangeUser(0.0001, 1.);
     u_pt->GetXaxis()->SetRangeUser(0, 100); 
     u_pt->GetYaxis()->SetTitle("Fake rate");
