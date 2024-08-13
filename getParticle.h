@@ -54,6 +54,15 @@ struct Reconstructed_Particle {
     std::pair<edm4hep::ReconstructedParticle,edm4hep::ReconstructedParticle> reco;
 };
 
+// Struct to hold hit data
+struct Tracker_Hit {
+    float z;
+    float radius;
+    float time;   
+    float path;  
+    bool flag;                  
+};
+
 // Function to get electron data from MCParticleCollection
 MC_Particle getStableMCParticle(const edm4hep::MCParticle& mcp, MC_Particle particle, int pdg_number) {  
     if (abs(mcp.getPDG()) == pdg_number && mcp.getGeneratorStatus() == 1) {  
@@ -87,4 +96,20 @@ Reconstructed_Particle getReco(const edm4hep::MCParticle& mcp, const edm4hep::MC
         }
     }
     return reco_p;   
-}   
+}  
+
+// Function to get hits
+Tracker_Hit getHit(const edm4hep::MCParticle& mcp, const edm4hep::SimTrackerHit& hit, Tracker_Hit tracker_hit) {    
+    tracker_hit.flag = false; 
+    if (hit.getParticle() == mcp) { 
+        auto pos = hit.getPosition(); 
+        TVector3 pos_v(pos.x, pos.y, pos.z);
+        tracker_hit.z = pos.z;
+        tracker_hit.radius = sqrt(pos.x*pos.x+pos.y*pos.y);
+        tracker_hit.time = hit.getTime();   
+        tracker_hit.path = hit.getPathLength();  
+        tracker_hit.flag = true;                                                                            
+    }
+    return tracker_hit;
+}
+
