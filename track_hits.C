@@ -32,28 +32,37 @@
 #include "TAxis.h"
 #include "TGaxis.h"
 #include "TLegend.h"
+#include "getParticle.h"
 using namespace std;
 
-void track_hits() {
+void track_hits(const char* input, const char* output, int pdg_number) {
     gStyle->SetOptStat(0000);
     double Bz = 2;
     std::cout << Bz << std::endl;
 
-    TFile* outputfile = new TFile("Outputfile.root", "RECREATE");
+    TFile* outputfile = new TFile(output, "RECREATE");
 
     // To read the generated file
     podio::ROOTReader reader;
-    reader.openFile("1Step1_wogun_output__edm4hep.root");
+    reader.openFile(input);
+
+    // Map for the particles
+    std::map<int, std::string> Particle_Map = {
+    {11, "e^{#pm}"},
+    {13, "#mu^{#pm}"},
+    {211, "#pi^{#pm}"}
+    };
+    auto name = Particle_Map[pdg_number];
     
-    // Create histogram
-    TH1D* h_events = new TH1D("h_events", ";#theta [mrad]", 30, 0, 250);
-    TH1D* h_itec_hits = new TH1D("h_itec_hits", ";#theta [mrad]", 30, 0, 250);
-    TH1D* h_itbc_hits = new TH1D("h_itbc_hits", ";#theta [mrad]", 30, 0, 250);
-    TH1D* h_otbc_hits = new TH1D("h_otbc_hits", ";#theta [mrad]", 30, 0, 250);
-    TH1D* h_otec_hits = new TH1D("h_otec_hits", ";#theta [mrad]", 30, 0, 250);
-    TH1D* h_vbc_hits = new TH1D("h_vbc_hits", ";#theta [mrad]", 30, 0, 250);
-    TH1D* h_vec_hits = new TH1D("h_vec_hits", ";#theta [mrad]", 30, 0, 250);
-    TH1D* h_total_hits = new TH1D("h_total_hits", ";#theta [mrad]", 30, 0, 250);
+    // Maps for the histograms
+    std::map<std::string,TH1D*> Histo_Map_theta;
+    Histo_Map_theta["h_itec_hits"] = new TH1D("h_itec_hits", ";#theta [mrad]", 30, 0, 250);
+    Histo_Map_theta["h_itbc_hits"] = new TH1D("h_itbc_hits", ";#theta [mrad]", 30, 0, 250);
+    Histo_Map_theta["h_otbc_hits"] = new TH1D("h_otbc_hits", ";#theta [mrad]", 30, 0, 250);
+    Histo_Map_theta["h_otec_hits"] = new TH1D("h_otec_hits", ";#theta [mrad]", 30, 0, 250);
+    Histo_Map_theta["h_vbc_hits"] = new TH1D("h_vbc_hits", ";#theta [mrad]", 30, 0, 250);
+    Histo_Map_theta["h_vec_hits"] = new TH1D("h_vec_hits", ";#theta [mrad]", 30, 0, 250);
+    Histo_Map_theta["h_total_hits"] = new TH1D("h_total_hits", ";#theta [mrad]", 30, 0, 250);
 
     TH1D* h_pass_theta = new TH1D("h_pass_theta", ";#theta [mrad]", 30, 0, 250);
     TH1D* h_total_theta = new TH1D("h_total_theta", ";#theta [mrad]", 30, 0, 250);
@@ -83,50 +92,49 @@ void track_hits() {
         
         // Search for first genStat 1 electron
         for (const auto& mcp : mcparticles) {
-            if (abs(mcp.getPDG()) == 11 && mcp.getGeneratorStatus() == 1) {  
-                auto mom = mcp.getMomentum(); 
-                TVector3 mom_v(mom.x, mom.y, mom.z);  
-                h_events->Fill(mom_v.Theta() *1000); 
-                h_total_theta->Fill(mom_v.Theta() *1000);                    
+            MC_Particle particle;
+            particle = getStableMCParticle(mcp, particle, pdg_number);
+            if (particle.flag == true) { 
+                h_total_theta->Fill(particle.theta *1000);                    
                 for (const auto& hit : itec) {
                     if (hit.getParticle() == mcp) {                        
-                        h_itec_hits->Fill(mom_v.Theta() *1000);
-                        h_total_hits->Fill(mom_v.Theta() *1000);                                        
+                        Histo_Map_theta["h_itec_hits"]->Fill(particle.theta *1000);
+                        Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                                        
                     }
                 }
                 for (const auto& hit : itbc) {
                     if (hit.getParticle() == mcp) {                        
-                        h_itbc_hits->Fill(mom_v.Theta() *1000); 
-                        h_total_hits->Fill(mom_v.Theta() *1000);                      
+                        Histo_Map_theta["h_itbc_hits"]->Fill(particle.theta *1000); 
+                        Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                      
                     }
                 }
                 for (const auto& hit : otbc) {
                     if (hit.getParticle() == mcp) {                        
-                        h_otbc_hits->Fill(mom_v.Theta() *1000); 
-                        h_total_hits->Fill(mom_v.Theta() *1000);                    
+                        Histo_Map_theta["h_otbc_hits"]->Fill(particle.theta *1000); 
+                        Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                    
                     }
                 }
                 for (const auto& hit : otec) {
                     if (hit.getParticle() == mcp) {                        
-                        h_otec_hits->Fill(mom_v.Theta() *1000); 
-                        h_total_hits->Fill(mom_v.Theta() *1000);                     
+                        Histo_Map_theta["h_otec_hits"]->Fill(particle.theta *1000); 
+                        Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                     
                     }
                 }
                 for (const auto& hit : vbc) {
                     if (hit.getParticle() == mcp) {                        
-                        h_vbc_hits->Fill(mom_v.Theta() *1000); 
-                        h_total_hits->Fill(mom_v.Theta() *1000);                      
+                        Histo_Map_theta["h_vbc_hits"]->Fill(particle.theta *1000); 
+                        Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                      
                     }
                 }
                 for (const auto& hit : vec) {
                     if (hit.getParticle() == mcp) {                        
-                        h_vec_hits->Fill(mom_v.Theta() *1000);
-                        h_total_hits->Fill(mom_v.Theta() *1000);                      
+                        Histo_Map_theta["h_vec_hits"]->Fill(particle.theta *1000);
+                        Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                      
                     }
                 }
                for (const auto& link : mctruthrecolinks) {
                     if (link.getSim() == mcp && link.getWeight() > 0.99) {
-                        h_pass_theta->Fill(mom_v.Theta() *1000);
+                        h_pass_theta->Fill(particle.theta *1000);
                     }
                 }
             }
@@ -138,20 +146,9 @@ void track_hits() {
     eff_theta->CreateGraph();
 
     // Average amount of hits
-    TH1D* u_itec_hits = (TH1D*)h_itec_hits->Clone(); 
-    u_itec_hits->Divide(h_events);
-    TH1D* u_itbc_hits = (TH1D*)h_itbc_hits->Clone(); 
-    u_itbc_hits->Divide(h_events);
-    TH1D* u_otbc_hits = (TH1D*)h_otbc_hits->Clone(); 
-    u_otbc_hits->Divide(h_events);
-    TH1D* u_otec_hits = (TH1D*)h_otec_hits->Clone(); 
-    u_otec_hits->Divide(h_events);
-    TH1D* u_vbc_hits = (TH1D*)h_vbc_hits->Clone(); 
-    u_vbc_hits->Divide(h_events);
-    TH1D* u_vec_hits = (TH1D*)h_vec_hits->Clone(); 
-    u_vec_hits->Divide(h_events);
-    TH1D* u_total_hits = (TH1D*)h_total_hits->Clone(); 
-    u_total_hits->Divide(h_events); 
+    for (auto& histo: Histo_Map_theta) {   
+        histo.second->Divide(h_total_theta);
+    }
 
     // Create canvas and draw histograms
     TLatex t;
@@ -160,9 +157,6 @@ void track_hits() {
     gStyle->Reset("Modern");
     TCanvas* c_hits = new TCanvas("c", "comp", 200, 10, 700, 500);
     
-    t.DrawLatex(50, 21, "Single e^{-}");
-    t.DrawLatexNDC(0.15, 0.93935, "CLD #font[52]{work in progress}");
-
     TPad *p1 = new TPad("p1", "", 0, 0, 1, 1);
     TPad *p2 = new TPad("p2", "", 0, 0, 1, 1);
     p1->SetFillStyle(4000); // will be transparent
@@ -172,40 +166,31 @@ void track_hits() {
     p1->cd(); 
      
     // Create the first graph
-    u_itec_hits->SetLineColor(kCyan+1);
-    u_itec_hits->SetLineWidth(2);
-    u_itec_hits->GetYaxis()->SetRangeUser(0,25);
-    u_itec_hits->GetXaxis()->SetRangeUser(0, 250);
-    u_itec_hits->GetYaxis()->SetTitle("Number of hits per electron");
-    u_itec_hits->GetYaxis()->SetTitleSize(0.05);
-    u_itec_hits->GetXaxis()->SetTitleSize(0.05);
-    u_itec_hits->GetXaxis()->SetTitleOffset(0.8);
-    u_itec_hits->GetYaxis()->SetTitleOffset(0.8);
-    u_itec_hits->Draw("hist");
-    u_itbc_hits->GetYaxis()->SetRangeUser(0,25);
-    u_itbc_hits->Draw("histsame");
-    u_itbc_hits->SetLineColor(kGreen+2);
-    u_itbc_hits->SetLineWidth(2);
-    u_otbc_hits->GetYaxis()->SetRangeUser(0,25);
-    u_otbc_hits->Draw("histsame");
-    u_otbc_hits->SetLineColor(kRed+2);
-    u_otbc_hits->SetLineWidth(2);
-    u_otec_hits->GetYaxis()->SetRangeUser(0,25);
-    u_otec_hits->Draw("histsame");
-    u_otec_hits->SetLineColor(kYellow+1);
-    u_otec_hits->SetLineWidth(2);
-    u_vbc_hits->GetYaxis()->SetRangeUser(0,25);
-    u_vbc_hits->Draw("histsame");
-    u_vbc_hits->SetLineColor(kRed-7);
-    u_vbc_hits->SetLineWidth(2);
-    u_vec_hits->GetYaxis()->SetRangeUser(0,25);
-    u_vec_hits->Draw("histsame");
-    u_vec_hits->SetLineColor(kBlue+1);
-    u_vec_hits->SetLineWidth(2);
-    u_total_hits->SetLineColor(kBlack);
-    u_total_hits->SetLineWidth(2);
-    u_total_hits->GetYaxis()->SetRangeUser(0,25);
-    u_total_hits->Draw("histsame");
+    for (auto& histo: Histo_Map_theta) {   
+        histo.second->SetLineWidth(2);
+        histo.second->GetYaxis()->SetRangeUser(0,25);
+    }
+    
+    Histo_Map_theta["h_itec_hits"]->GetXaxis()->SetRangeUser(0, 250);
+    Histo_Map_theta["h_itec_hits"]->GetYaxis()->SetTitle(Form("Number of hits per %s", name.c_str()));
+    Histo_Map_theta["h_itec_hits"]->GetYaxis()->SetTitleSize(0.05);
+    Histo_Map_theta["h_itec_hits"]->GetXaxis()->SetTitleSize(0.05);
+    Histo_Map_theta["h_itec_hits"]->GetXaxis()->SetTitleOffset(0.8);
+    Histo_Map_theta["h_itec_hits"]->GetYaxis()->SetTitleOffset(0.8);
+    Histo_Map_theta["h_itec_hits"]->SetLineColor(kCyan+1);
+    Histo_Map_theta["h_itbc_hits"]->SetLineColor(kGreen+2);
+    Histo_Map_theta["h_otbc_hits"]->SetLineColor(kRed+2);
+    Histo_Map_theta["h_otec_hits"]->SetLineColor(kYellow+1);
+    Histo_Map_theta["h_vbc_hits"]->SetLineColor(kRed-7);
+    Histo_Map_theta["h_vec_hits"]->SetLineColor(kBlue+1);
+    Histo_Map_theta["h_total_hits"]->SetLineColor(kBlack);
+    Histo_Map_theta["h_itec_hits"]->Draw("hist");
+    Histo_Map_theta["h_itbc_hits"]->Draw("histsame");
+    Histo_Map_theta["h_otbc_hits"]->Draw("histsame");
+    Histo_Map_theta["h_otec_hits"]->Draw("histsame");
+    Histo_Map_theta["h_vbc_hits"]->Draw("histsame");  
+    Histo_Map_theta["h_vec_hits"]->Draw("histsame");
+    Histo_Map_theta["h_total_hits"]->Draw("histsame");
 
     // Create the second graph
     Double_t xmin = 0;
@@ -233,14 +218,17 @@ void track_hits() {
 
     TLegend* l = new TLegend(0.1, 0.3, 0.35, 0.55);
     l->AddEntry(eff_theta, "Efficiency");
-    l->AddEntry(u_itec_hits, "Inner Tracker Endcap");
-    l->AddEntry(u_itbc_hits, "Inner Tracker Barrel");
-    l->AddEntry(u_otbc_hits, "Outer Tracker Barrel");
-    l->AddEntry(u_otec_hits, "Outer Tracker Endcap");
-    l->AddEntry(u_vbc_hits, "Vertex Barrel");
-    l->AddEntry(u_vec_hits, "Vertex Endcap");
-    l->AddEntry(u_total_hits, "Total");
+    l->AddEntry(Histo_Map_theta["h_itec_hits"], "Inner Tracker Endcap");
+    l->AddEntry(Histo_Map_theta["h_itbc_hits"], "Inner Tracker Barrel");
+    l->AddEntry(Histo_Map_theta["h_otbc_hits"], "Outer Tracker Barrel");
+    l->AddEntry(Histo_Map_theta["h_otec_hits"], "Outer Tracker Endcap");
+    l->AddEntry(Histo_Map_theta["h_vbc_hits"], "Vertex Barrel");
+    l->AddEntry(Histo_Map_theta["h_vec_hits"], "Vertex Endcap");
+    l->AddEntry(Histo_Map_theta["h_total_hits"], "Total");
     l->Draw(); 
+
+    t.DrawLatexNDC(0.15, 0.6, Form("Single %s", name.c_str()));
+    t.DrawLatexNDC(0.15, 0.93935, "CLD #font[52]{work in progress}");
 
     //c_hits->Draw();
     c_hits->SaveAs("plots/trk_hits_wogun/hits.pdf");
