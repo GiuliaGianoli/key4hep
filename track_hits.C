@@ -68,11 +68,6 @@ void track_hits(const char* input, const char* output, int pdg_number) {
     TH1D* h_total_theta = new TH1D("h_total_theta", ";#theta [mrad]", 30, 0, 250);
 
     int all = 0;
-    int found = 0;
-    int all_acc = 0;
-    int all_c = 0;
-    int prova = 0;
-    
 
     for (size_t i = 0; i < reader.getEntries("events"); ++i) {
         if (all >= 100000) break;
