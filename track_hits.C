@@ -208,7 +208,7 @@ void track_hits(const char* input, const char* output, int pdg_number) {
     eff_theta->SetLineWidth(2);
     eff_theta->Draw("psame");
 
-    //Draw an axis on the right side
+    // Draw an axis on the right side
     TGaxis *axis = new TGaxis(xmax, ymin, xmax, ymax, ymin, ymax, 510, "+L");
     axis->SetLineColor(kViolet-7);
     axis->SetLabelColor(kViolet-7);
