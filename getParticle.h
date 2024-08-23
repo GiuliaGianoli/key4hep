@@ -113,3 +113,39 @@ Tracker_Hit getHit(const edm4hep::MCParticle& mcp, const edm4hep::SimTrackerHit&
     return tracker_hit;
 }
 
+// Function to get the number of hits of the track
+bool getNumberofHitTrack(const edm4hep::SimTrackerHit& hit, const edm4hep::TrackerHitSimTrackerHitLinkCollection& tracker_link, const edm4hep::TrackCollection& tracks) {
+    bool flag = false;   
+    for (const auto& link : tracker_link) { 
+        if(link.getSim() == hit) {
+            for (const auto& track : tracks) {
+                auto range = track.getTrackerHits(); // hits that have been used to create this track
+                for (const auto& hits_track: range) {                                                                 
+                    if(link.getRec() == hits_track ){                    
+                        flag = true;
+                    }
+                } 
+            }
+        }
+    } 
+    return flag;
+} 
+
+// Function to get number of the hits of the reconstructed track
+bool getNumberofHitReco( const podio::RelationRange<edm4hep::Track>& tracks, const edm4hep::SimTrackerHit& hit,  const edm4hep::TrackerHitSimTrackerHitLinkCollection& tracker_link ){
+    bool flag = false;
+    for (const auto& link : tracker_link) { 
+        if(link.getSim() == hit) {
+            for (const auto& track : tracks) {
+                auto range = track.getTrackerHits(); // hits that have been used to create this track
+                for (const auto& hits_track: range) {                                                                 
+                    if(link.getRec() == hits_track ){                    
+                        flag = true;
+                    }
+                } 
+            }
+        }
+    } 
+    return flag; 
+}
+
