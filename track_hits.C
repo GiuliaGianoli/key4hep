@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include <cmath>
+#include <tuple>
 #include <TFile.h>
 #include <TTree.h>
 #include <TH1D.h>
@@ -15,7 +16,7 @@
 #include "edm4hep/MCParticleCollection.h"
 #include "edm4hep/SimTrackerHitCollection.h"
 #include "edm4hep/MCRecoTrackParticleAssociation.h"
-
+#include "edm4hep/MCRecoParticleAssociationCollection.h"
 #include "edm4hep/ReconstructedParticleCollection.h"
 #include "edm4hep/utils/kinematics.h"
 #include "podio/Frame.h"
@@ -70,19 +71,29 @@ void track_hits(const char* input, const char* output, int pdg_number) {
     int all = 0;
 
     for (size_t i = 0; i < reader.getEntries("events"); ++i) {
-        if (all >= 100000) break;
+        if (all >= 10000) break;
         all++;
 
         const auto event = podio::Frame(reader.readNextEntry("events"));
         const auto &mcparticles = event.get<edm4hep::MCParticleCollection>("MCParticles");
-        const auto &mctruthrecolinks = event.get<edm4hep::MCRecoTrackParticleAssociationCollection>("SiTracksMCTruthLink");
-
+        const auto &mctruthrecolinks = event.get<edm4hep::TrackMCParticleLinkCollection>("SiTracksMCTruthLink"); //before MCRecoTrackParticleAssociation
+        
         const auto &itec = event.get<edm4hep::SimTrackerHitCollection>("InnerTrackerEndcapCollection");
         const auto &itbc = event.get<edm4hep::SimTrackerHitCollection>("InnerTrackerBarrelCollection");
         const auto &otbc = event.get<edm4hep::SimTrackerHitCollection>("OuterTrackerBarrelCollection");
         const auto &otec = event.get<edm4hep::SimTrackerHitCollection>("OuterTrackerEndcapCollection");
         const auto &vbc = event.get<edm4hep::SimTrackerHitCollection>("VertexBarrelCollection");
         const auto &vec = event.get<edm4hep::SimTrackerHitCollection>("VertexEndcapCollection");
+
+        // Map for the SimTrackerHit
+        std::vector<std::tuple<std::string,const edm4hep::SimTrackerHitCollection*>> SimTrackerHit = {
+            {"itec", &itec},
+            {"itbc", &itbc},
+            {"otbc", &otbc},
+            {"otec", &otec},
+            {"vbc", &vbc},
+            {"vec", &vec}
+        };
         
         
         // Search for first genStat 1 electron
@@ -90,44 +101,20 @@ void track_hits(const char* input, const char* output, int pdg_number) {
             MC_Particle particle;
             particle = getStableMCParticle(mcp, particle, pdg_number);
             if (particle.flag == true) { 
-                h_total_theta->Fill(particle.theta *1000);                    
-                for (const auto& hit : itec) {
-                    if (hit.getParticle() == mcp) {                        
-                        Histo_Map_theta["h_itec_hits"]->Fill(particle.theta *1000);
-                        Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                                        
+                h_total_theta->Fill(particle.theta *1000);  
+                for (const auto& simtracker : SimTrackerHit) {
+                    std::string name_sim;
+                    const edm4hep::SimTrackerHitCollection*  hit_collection;   
+                    std::tie(name_sim, hit_collection) = simtracker;                  
+                    for (const auto& hit : *hit_collection) {
+                        if (hit.getParticle() == mcp) { 
+                            std::string histo_si_name = "h_" + name_sim + "_hits";                       
+                            Histo_Map_theta[histo_si_name]->Fill(particle.theta *1000);
+                            Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                                        
+                        }
                     }
                 }
-                for (const auto& hit : itbc) {
-                    if (hit.getParticle() == mcp) {                        
-                        Histo_Map_theta["h_itbc_hits"]->Fill(particle.theta *1000); 
-                        Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                      
-                    }
-                }
-                for (const auto& hit : otbc) {
-                    if (hit.getParticle() == mcp) {                        
-                        Histo_Map_theta["h_otbc_hits"]->Fill(particle.theta *1000); 
-                        Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                    
-                    }
-                }
-                for (const auto& hit : otec) {
-                    if (hit.getParticle() == mcp) {                        
-                        Histo_Map_theta["h_otec_hits"]->Fill(particle.theta *1000); 
-                        Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                     
-                    }
-                }
-                for (const auto& hit : vbc) {
-                    if (hit.getParticle() == mcp) {                        
-                        Histo_Map_theta["h_vbc_hits"]->Fill(particle.theta *1000); 
-                        Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                      
-                    }
-                }
-                for (const auto& hit : vec) {
-                    if (hit.getParticle() == mcp) {                        
-                        Histo_Map_theta["h_vec_hits"]->Fill(particle.theta *1000);
-                        Histo_Map_theta["h_total_hits"]->Fill(particle.theta *1000);                      
-                    }
-                }
-               for (const auto& link : mctruthrecolinks) {
+                for (const auto& link : mctruthrecolinks) {
                     if (link.getSim() == mcp && link.getWeight() > 0.99) {
                         h_pass_theta->Fill(particle.theta *1000);
                     }
@@ -226,7 +213,7 @@ void track_hits(const char* input, const char* output, int pdg_number) {
     t.DrawLatexNDC(0.15, 0.93935, "CLD #font[52]{work in progress}");
 
     //c_hits->Draw();
-    c_hits->SaveAs("plots/trk_hits_wogun/hits.pdf");
+    c_hits->SaveAs("plots/Update_version/ciao.pdf");
 
     outputfile->Write();
     outputfile->Close(); 
