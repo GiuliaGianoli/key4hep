@@ -39,11 +39,31 @@
 #include "TGaxis.h"
 #include "TLegend.h"
 
+// Struct to hold min radius and z
+struct minimum {
+    float radius_min;
+    float z_min;
+};
+
+// Struct to hold max radius and z
+struct maximum {
+    float radius_max;
+    float z_max;
+    float energy; // energy at the hit position
+    float pt; // pt at the hit position
+    float energy_dep; //percentage
+};
+
 // Struct to hold MC particle data
 struct MC_Particle {
+    edm4hep::MCParticle mc_particle;
+    int pdg;
     float theta;
     float pt;
     float p;  
+    float vertex; //radius
+    float z; // vertex
+    float energy; 
     bool flag; 
 };
 
@@ -57,9 +77,14 @@ struct Reconstructed_Particle {
 // Struct to hold hit data
 struct Tracker_Hit {
     float z;
+    float y;
+    float x;
     float radius;
     float time;   
-    float path;  
+    float path; 
+    float eDep;
+    float pt;
+    float p; 
     bool flag;                  
 };
 
@@ -105,9 +130,16 @@ Tracker_Hit getHit(const edm4hep::MCParticle& mcp, const edm4hep::SimTrackerHit&
         auto pos = hit.getPosition(); 
         TVector3 pos_v(pos.x, pos.y, pos.z);
         tracker_hit.z = pos.z;
-        tracker_hit.radius = sqrt(pos.x*pos.x+pos.y*pos.y);
+        tracker_hit.y = pos.y;
+        tracker_hit.x = pos.x;
+        tracker_hit.radius = sqrt(pos.x*pos.x+pos.y*pos.y+pos.z*pos.z);
+        auto mom = hit.getMomentum();
+        TVector3 mom_v(mom.x,mom.y,mom.z);
+        tracker_hit.pt = mom_v.Pt();
+        tracker_hit.p = sqrt(mom.x*mom.x + mom.y*mom.y + mom.z*mom.z); 
         tracker_hit.time = hit.getTime();   
         tracker_hit.path = hit.getPathLength();  
+        tracker_hit.eDep = hit.getEDep();
         tracker_hit.flag = true;                                                                            
     }
     return tracker_hit;
@@ -119,7 +151,7 @@ bool getNumberofHitTrack(const edm4hep::SimTrackerHit& hit, const edm4hep::Track
     for (const auto& link : tracker_link) { 
         if(link.getSim() == hit) {
             for (const auto& track : tracks) {
-                auto range = track.getTrackerHits(); // hits that have been used to create this track
+                auto range = track.getTrackerHits(); 
                 for (const auto& hits_track: range) {                                                                 
                     if(link.getRec() == hits_track ){                    
                         flag = true;
@@ -137,15 +169,64 @@ bool getNumberofHitReco( const podio::RelationRange<edm4hep::Track>& tracks, con
     for (const auto& link : tracker_link) { 
         if(link.getSim() == hit) {
             for (const auto& track : tracks) {
-                auto range = track.getTrackerHits(); // hits that have been used to create this track
+                auto range = track.getTrackerHits(); 
                 for (const auto& hits_track: range) {                                                                 
                     if(link.getRec() == hits_track ){                    
                         flag = true;
                     }
-                } 
-            }
+                }
+            } 
         }
     } 
     return flag; 
 }
 
+// Function that gets the daughters of the MC particle
+MC_Particle getDaughters(const edm4hep::MCParticle& mcp, maximum max, minimum min){
+    auto daughters = mcp.getDaughters();
+    MC_Particle mc_daughter;
+    mc_daughter.energy = 0.;
+    for (const auto& daughter : daughters){
+        float radius_vertex = sqrt(daughter.getVertex().x*daughter.getVertex().x+daughter.getVertex().y*daughter.getVertex().y+daughter.getVertex().z*daughter.getVertex().z);
+        float z_vertex = daughter.getVertex().z;
+        float momentum_daughter = sqrt(pow(daughter.getMomentum().x,2)+pow(daughter.getMomentum().y,2)+pow(daughter.getMomentum().z,2));
+        float energy_daughter = daughter.getEnergy();
+        float energy_frac = energy_daughter/max.energy_dep;
+        auto mom = daughter.getMomentum(); 
+        TVector3 mom_v(mom.x, mom.y, mom.z);
+        float pt_daughter = mom_v.Pt();
+        float pt_frac = pt_daughter/max.pt;
+        if (radius_vertex > max.radius_max && radius_vertex < min.radius_min && abs(z_vertex) > abs(max.z_max) && abs(z_vertex) < abs(min.z_min) && energy_frac > mc_daughter.energy) {
+            mc_daughter.mc_particle = daughter;
+            mc_daughter.pdg = daughter.getPDG();
+            mc_daughter.vertex = radius_vertex; 
+            mc_daughter.energy = energy_daughter;
+            mc_daughter.pt = pt_frac;
+            mc_daughter.flag = true;                 
+        }
+    }
+    return mc_daughter;
+}
+
+// Functions that return the minimum/maximum radius of the missing hits
+minimum getMinRadius(Tracker_Hit tracker_hit, minimum min){
+    if( tracker_hit.radius < min.radius_min) { 
+        min.radius_min = tracker_hit.radius;
+        min.z_min = tracker_hit.z;
+    }
+    return min;
+}
+
+maximum getMaxRadius(Tracker_Hit tracker_hit, maximum max, const edm4hep::SimTrackerHit& hit, const edm4hep::MCParticle& mcp){
+    if( tracker_hit.radius > max.radius_max) { 
+        max.radius_max = tracker_hit.radius;
+        max.z_max = tracker_hit.z;
+        float momentum_mcp = sqrt(pow(hit.getMomentum().x,2)+pow(hit.getMomentum().y,2)+pow(hit.getMomentum().z,2));
+        max.energy = sqrt(pow(mcp.getMass(),2) + pow(momentum_mcp,2))-hit.getEDep();
+        auto mom = hit.getMomentum(); 
+        TVector3 mom_v(mom.x, mom.y, mom.z);
+        max.pt = mom_v.Pt();
+        max.energy_dep = hit.getEDep()/sqrt(pow(mcp.getMass(),2) + pow(momentum_mcp,2));
+    }
+    return max;
+}
