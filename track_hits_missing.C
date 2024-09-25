@@ -106,7 +106,7 @@ void track_hits_missing(const char* input, const char* output, int pdg_number) {
             {"vbc", &vbc, &vbc_link},
             {"vec", &vec, &vec_link}
         };
-
+        //std::cout << i << std::endl;
         for (const auto& mcp : mcparticles) {
             MC_Particle particle;
             particle = getStableMCParticle(mcp, particle, pdg_number);
@@ -119,6 +119,8 @@ void track_hits_missing(const char* input, const char* output, int pdg_number) {
                     std::tie(name_sim, hit_collection,  hit_link) = simtracker;    
                     for (const auto& hit : *hit_collection) {
                         if (hit.getParticle() == mcp) { 
+                            Tracker_Hit tracker_hit;
+                            tracker_hit = getHit(mcp, hit, tracker_hit);
                             std::string histo_si_name = "h_" + name_sim + "_hits";
                             Reconstructed_Particle reco_p;
                             reco_p = getReco(mcp, mclinks, reco_p); 
@@ -128,7 +130,7 @@ void track_hits_missing(const char* input, const char* output, int pdg_number) {
                             bool flag_secondary = hit.isProducedBySecondary();
                             if (flag == false && flag_secondary == false){
                                 Histo_Map_si[histo_si_name]->Fill(particle.theta *1000);
-                                Histo_Map_si["h_total_hits"]->Fill(particle.theta *1000);
+                                Histo_Map_si["h_total_hits"]->Fill(particle.theta *1000);                        
                             }                                                                                                                
                         }
                     }
@@ -152,7 +154,7 @@ void track_hits_missing(const char* input, const char* output, int pdg_number) {
     // Create the first graph
     for (auto& histo: Histo_Map_si) {   
         histo.second->SetLineWidth(2);
-        histo.second->GetYaxis()->SetRangeUser(0,20);
+        histo.second->GetYaxis()->SetRangeUser(0,6);
     }
     
     Histo_Map_si["h_itec_hits"]->GetXaxis()->SetRangeUser(0, TMath::Pi()*1000);
@@ -188,8 +190,9 @@ void track_hits_missing(const char* input, const char* output, int pdg_number) {
 
     t.DrawLatexNDC(0.4, 0.55, Form("Single %s", name.c_str()));
     t.DrawLatexNDC(0.15, 0.93935, "CLD #font[52]{work in progress}");
+    //t.DrawLatexNDC(0.68, 0.93935, "#scale[0.8]{p_{T} > 10GeV}");
 
-    c_hits->SaveAs("plots/Update_version/hits_missing.pdf");
+    c_hits->SaveAs("plots/Missing_hits/hits_missing.pdf");
 
     outputfile->Write();
     outputfile->Close(); 
